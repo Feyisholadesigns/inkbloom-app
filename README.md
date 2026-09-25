@@ -1,82 +1,177 @@
-# 📚 ReadWrite App
-### *Where Stories Find Their Readers, and Readers Find Their Voices.*
+Good catch! The README is your project's front door on GitHub. Let's give Inkbloom a professional introduction.
 
-![ReadWrite Banner](https://via.placeholder.com/1200x400/800020/FFFFFF?text=ReadWrite+App)
+### ✅ `README.md` (Full File)
 
-## 📖 About the Project
-**ReadWrite** is a free, community-driven Progressive Web App (PWA) designed to bridge the gap between passionate readers and aspiring writers. 
+```markdown
+# 🌸 Inkbloom
 
-In a world where self-publishing can be complicated and finding niche books can be difficult, ReadWrite offers a simple, beautiful, and distraction-free platform. Writers can easily upload their books in PDF format, and readers can discover, read, and review stories across a wide variety of genres. 
+**Where writers blossom** — a 100% free platform built to support upcoming writers and passionate readers.
 
-There are no paywalls, no complex algorithms, and no clutter. Just great books and the people who love them.
+Inkbloom provides a safe space for authors to publish their original work and for readers to discover fresh voices across every genre. No paywalls, no pressure—just a community helping each other grow.
 
----
+## ✨ Features
 
-## ✨ Key Features
+### For Writers
+- 📚 **Publish Original Books** — Upload PDFs with secure Cloudflare R2 storage
+- 📊 **Personal Dashboard** — Track published books, total readers, and engagement
+- 🔗 **Invite Links** — Share unique book links that require reader authentication
+- 🗑️ **Secure Deletion** — Remove books from both storage and database in one click
+- 📝 **20+ Genres** — From Fiction to Mindset Shift, Financial to Relationships
 
-###  For Readers
-* **Discover Books:** Browse a curated bookstore featuring diverse genres like Leadership, Health, Fiction, Love, Personal Growth, Mindset, Finance, and Relationships.
-* **Distraction-Free Reading:** Enjoy a clean, built-in PDF reader designed for comfort.
-* **Engage & Review:** Leave star ratings (1-5) and written feedback to support your favorite authors.
-* **Personalized Experience:** Save your favorite genres and track the books you've read.
+### For Readers
+- 📖 **Custom In-App Reader** — Smooth scrolling PDF viewer optimized for mobile
+- 💾 **Page Memory** — Automatically saves your reading position
+- ✅ **Reading Stats** — Track books in progress and completed reads
+- 🔒 **Secure Access** — No downloads allowed, protecting authors' work
+- 📱 **PWA Ready** — Install as a native app on any device
 
-### ✍️ For Writers
-* **Easy Publishing:** Upload your book (PDF) and cover image in just a few clicks.
-* **Author Profiles:** Build your personal brand with a dedicated profile showcasing your bio and published works.
-* **Direct Feedback:** See exactly what readers think of your work through ratings and comments.
-* **Basic Analytics:** Track how many people are reading and reviewing your books.
+### Platform Security
+- 🔐 **Role-Based Access** — Separate experiences for writers and readers
+- 🛡️ **Signed URLs** — 7-day expiry prevents unauthorized sharing
+- 🚫 **Private Storage** — Cloudflare R2 with no public access
+- ✅ **Email Verification** — All users must verify before publishing
+- 🔥 **Server-Side Verification** — Ownership checks on all delete operations
 
----
+## 🛠️ Tech Stack
 
-##  Design & User Experience
-ReadWrite is built with a focus on elegance and readability.
-* **Color Palette:** A sophisticated mix of **Deep Burgundy** (`#800020`) and **Pure White**, accented with Soft Gold.
-* **Typography:** We use *Playfair Display* (a classic serif) for headings to give a literary feel, and *Inter* (a clean sans-serif) for body text to ensure maximum readability.
-* **Light & Dark Mode:** Whether you read in the bright sunlight or late at night, toggle seamlessly between Light and Dark themes with one click.
-* **Mobile-First:** Fully responsive design that looks and feels like a native app on phones, tablets, and desktops.
+- **Frontend:** React 18 + Vite
+- **Styling:** Tailwind CSS with dark mode support
+- **PDF Rendering:** react-pdf (pdf.js)
+- **Authentication:** Firebase Auth
+- **Database:** Firestore
+- **Storage:** Cloudflare R2 (private)
+- **Hosting:** Vercel (with serverless functions)
+- **PWA:** vite-plugin-pwa
 
----
-
-## ️ Technology Stack
-This project is built using modern, fast, and scalable web technologies:
-
-* **Frontend Framework:** [React.js](https://react.dev/) (Built with Vite for lightning-fast performance)
-* **Styling:** [Tailwind CSS](https://tailwindcss.com/) (For a beautiful, utility-first design system)
-* **Backend & Database:** [Firebase](https://firebase.google.com/) (Handles secure user authentication, real-time database, and file storage)
-* **Icons:** [Lucide React](https://lucide.dev/)
-* **Deployment:** Firebase Hosting (Ensuring global speed and reliability)
-
----
-
-## 🗺️ Project Roadmap
-
-### 🟢 Phase 1: The MVP (Current Phase)
-* [x] Project setup and design system configuration
-* [x] Landing page and Navigation bar
-* [x] User Authentication (Reader & Writer roles)
-* [ ] Bookstore browsing and genre filtering
-* [ ] PDF Reader integration
-* [ ] Review and Rating system
-* [ ] Writer upload dashboard
-* [ ] PWA installation (Add to Home Screen)
-
-### 🔵 Phase 2: Future Enhancements
-* [ ] Offline reading (Caching PDFs for offline access)
-* [ ] Push notifications for new releases and reviews
-* [ ] Premium/Paid books integration
-* [ ] Advanced writer analytics and reading statistics
-* [ ] Social features (Following authors, reading lists)
-
----
-
-## 🚀 Getting Started (For Developers)
-
-If you want to run this project locally on your computer, follow these simple steps:
+## 🚀 Getting Started
 
 ### Prerequisites
-Make sure you have [Node.js](https://nodejs.org/) installed on your machine.
+- Node.js 18+
+- Firebase project with Authentication & Firestore enabled
+- Cloudflare R2 bucket (private access)
 
 ### Installation
-1. **Clone the repository:**
+
+1. **Clone the repository**
    ```bash
-   git clone https://github.com/Feyisholadesigns/readwrite-app.git
+   git clone https://github.com/YOUR_USERNAME/inkbloom-app.git
+   cd inkbloom-app
+   ```
+
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
+
+3. **Create environment file**
+   ```bash
+   cp .env.example .env.local
+   ```
+
+4. **Fill in your credentials** in `.env.local`:
+   ```env
+   # Cloudflare R2 (Development Only)
+   VITE_R2_ACCOUNT_ID=your_account_id
+   VITE_R2_ACCESS_KEY_ID=your_access_key
+   VITE_R2_SECRET_ACCESS_KEY=your_secret_key
+   VITE_R2_BUCKET_NAME=your_bucket_name
+
+   # Firebase Configuration
+   VITE_FIREBASE_API_KEY=your_api_key
+   VITE_FIREBASE_AUTH_DOMAIN=your_auth_domain
+   VITE_FIREBASE_PROJECT_ID=your_project_id
+   VITE_FIREBASE_STORAGE_BUCKET=your_storage_bucket
+   VITE_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
+   VITE_FIREBASE_APP_ID=your_app_id
+   ```
+
+5. **Run the development server**
+   ```bash
+   npm run dev
+   ```
+
+6. **Open** [http://localhost:5173](http://localhost:5173)
+
+## 📦 Deployment
+
+### Vercel Setup
+
+1. **Connect your GitHub repo** to Vercel
+2. **Add environment variables** (see `.env.example` for required vars)
+   - R2 variables use `R2_*` prefix (no `VITE_`)
+   - Firebase variables use `VITE_FIREBASE_*` prefix
+3. **Deploy** — Vercel auto-detects Vite and serverless functions
+
+### Cloudflare R2 Configuration
+
+1. Create a bucket (e.g., `inkbloom-books`)
+2. **Disable public access** in bucket settings
+3. Configure CORS policy:
+   ```json
+   [
+     {
+       "AllowedOrigins": ["*"],
+       "AllowedMethods": ["GET", "PUT", "HEAD"],
+       "AllowedHeaders": ["*"],
+       "MaxAgeSeconds": 3600
+     }
+   ]
+   ```
+
+### Firestore Security Rules
+
+Deploy the rules from the Firebase Console to protect your data:
+- Writers can only manage their own books
+- Readers can only track their own reading progress
+- All operations require authentication
+
+## 📱 Usage Flow
+
+### Publishing a Book
+1. Sign up as a **Writer**
+2. Verify your email
+3. Go to **My Dashboard**
+4. Fill in title, genre, description
+5. Upload PDF (max 50MB)
+6. Share the generated invite link
+
+### Reading a Book
+1. Click an invite link or browse **Discover**
+2. Sign in (or sign up) if not already
+3. Start reading with automatic page tracking
+4. Mark as finished when done
+5. View your reading stats on **My Profile**
+
+## 🔒 Security Architecture
+
+- **Storage:** All PDFs stored in private Cloudflare R2 bucket
+- **Access:** Signed URLs generated server-side with 7-day expiry
+- **Rendering:** PDFs fetched as blobs, rendered in-app (no direct downloads)
+- **Authentication:** Firebase ID tokens verified on all sensitive operations
+- **Authorization:** Firestore security rules enforce ownership at database level
+
+## 📄 License
+
+© 2026 Inkbloom. All rights reserved.
+
+Built with ❤️ by Feyisholadesigns
+
+---
+
+**[Visit Inkbloom](https://your-vercel-domain.vercel.app)** • **[Report Issues](https://github.com/YOUR_USERNAME/inkbloom-app/issues)**
+```
+
+### 📝 Update These Placeholders
+Before committing, replace:
+- `YOUR_USERNAME` → your actual GitHub username (appears 3 times)
+- `your-vercel-domain.vercel.app` → your actual Vercel URL (after deployment)
+
+### 🎨 Bonus: Add a Logo
+If you want a banner image in the README, place `logo-banner.png` in your `public/` folder and add this right after the title:
+
+```markdown
+<p align="center">
+  <img src="public/logo-banner.png" alt="Inkbloom Banner" width="600"/>
+</p>
+```
+

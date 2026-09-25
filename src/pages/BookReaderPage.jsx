@@ -2,16 +2,18 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { db } from '../firebaseConfig';
-import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, serverTimestamp, collection, addDoc } from 'firebase/firestore';
 import { GetObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { r2Client, BUCKET_NAME } from '../r2Config';
 import { Document, Page, pdfjs } from 'react-pdf';
+import 'react-pdf/dist/Page/TextLayer.css'; // ✅ Required for proper text selection layout
 import Navbar from '../components/Navbar';
 import Skeleton from '../components/Skeleton';
-import { ArrowLeft, Lock, CheckCircle2, BookOpenCheck, ChevronUp, ChevronDown } from 'lucide-react';
+import ReaderWatermark from '../components/ReaderWatermark';
+import QuoteShare from '../components/QuoteShare';
+import { ArrowLeft, Lock, CheckCircle2, BookOpenCheck, ChevronUp, ChevronDown, Bookmark, Share2, X } from 'lucide-react';
 
-// ✅ pdf.js worker (Vite bundles it automatically)
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.min.mjs',
   import.meta.url
@@ -34,6 +36,14 @@ export default function BookReaderPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [range, setRange] = useState({ start: 1, end: 3 });
   const [containerWidth, setContainerWidth] = useState(0);
+
+  // Quote feature state
+  const [selectedText, setSelectedText] = useState('');
+  const [selectionPos, setSelectionPos] = useState({ x: 0, y: 0 });
+  const [showQuoteMenu, setShowQuoteMenu] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [savingQuote, setSavingQuote] = useState(false);
+  const [quoteSaved, setQuoteSaved] = useState(false);
 
   const containerRef = useRef(null);
   const pageRefs = useRef({});
@@ -90,7 +100,7 @@ export default function BookReaderPage() {
         let url = '';
         if (import.meta.env.DEV && r2Client && bookData.r2Key) {
           const command = new GetObjectCommand({ Bucket: BUCKET_NAME, Key: bookData.r2Key, ResponseContentType: 'application/pdf' });
-          url = await getSignedUrl(r2Client, command, { expiresIn: 604800 }); // ✅ 7 days max
+          url = await getSignedUrl(r2Client, command, { expiresIn: 604800 });
         } else if (bookData.r2Key) {
           const res = await fetch(`/api/get-signed-url?key=${encodeURIComponent(bookData.r2Key)}`);
           if (!res.ok) throw new Error('Failed to generate secure link');
@@ -128,7 +138,58 @@ export default function BookReaderPage() {
   currentPageRef.current = currentPage;
   numPagesRef.current = numPages;
 
-  // ✅ Scroll handler: detect visible pages (lazy render) + current page
+  // ✅ TEXT SELECTION → floating quote menu
+  const handleTextSelect = useCallback(() => {
+    const selection = window.getSelection();
+    const text = selection.toString().trim();
+    if (text.length > 5 && text.length < 500) {
+      setSelectedText(text);
+      setShowQuoteMenu(true);
+      setQuoteSaved(false);
+      const rect = selection.getRangeAt(0).getBoundingClientRect();
+      setSelectionPos({ x: rect.left + rect.width / 2, y: rect.top - 10 });
+    } else {
+      setShowQuoteMenu(false);
+      setSelectedText('');
+    }
+  }, []);
+
+  useEffect(() => {
+    document.addEventListener('mouseup', handleTextSelect);
+    document.addEventListener('touchend', handleTextSelect);
+    return () => {
+      document.removeEventListener('mouseup', handleTextSelect);
+      document.removeEventListener('touchend', handleTextSelect);
+    };
+  }, [handleTextSelect]);
+
+  // ✅ SAVE QUOTE to Firestore
+  const handleSaveQuote = async () => {
+    if (!selectedText || !book) return;
+    try {
+      setSavingQuote(true);
+      await addDoc(collection(db, 'quotes'), {
+        userId: currentUser.uid,
+        bookId: book.id,
+        bookTitle: book.title,
+        authorName: book.authorName,
+        quoteText: selectedText,
+        createdAt: serverTimestamp(),
+      });
+      setQuoteSaved(true);
+      setTimeout(() => {
+        setShowQuoteMenu(false);
+        setSelectedText('');
+        window.getSelection().removeAllRanges();
+      }, 1500);
+    } catch (err) {
+      console.error('Failed to save quote:', err);
+    } finally {
+      setSavingQuote(false);
+    }
+  };
+
+  // Scroll handler: detect visible pages (lazy render) + current page
   const handleScroll = useCallback(() => {
     const container = containerRef.current;
     if (!container || !numPagesRef.current) return;
@@ -153,7 +214,7 @@ export default function BookReaderPage() {
     }
   }, []);
 
-  // ✅ SAVE PROGRESS (debounced 1.5s after they stop scrolling)
+  // SAVE PROGRESS (debounced 1.5s after they stop scrolling)
   useEffect(() => {
     if (!trackRef.current || !readIdRef.current || !numPages) return;
     const t = setTimeout(() => {
@@ -165,7 +226,7 @@ export default function BookReaderPage() {
     return () => clearTimeout(t);
   }, [currentPage, numPages]);
 
-  // ✅ Save one final time when leaving the page
+  // Save one final time when leaving the page
   useEffect(() => {
     return () => {
       if (trackRef.current && readIdRef.current && numPagesRef.current) {
@@ -177,7 +238,7 @@ export default function BookReaderPage() {
     };
   }, []);
 
-  // ✅ RESUME: jump to saved page once layout is ready
+  // RESUME: jump to saved page once layout is ready
   useEffect(() => {
     if (!numPages || resumedRef.current || !resumePageRef.current) return;
     const target = Math.min(resumePageRef.current, numPages);
@@ -274,8 +335,12 @@ export default function BookReaderPage() {
           )}
         </div>
 
-        {/* ✅ CUSTOM IN-APP READER — scrolls perfectly on mobile, no downloads possible */}
-        <div className="relative bg-white dark:bg-brand-surface rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-lg">
+        {/* ✅ PROTECTED READER: author-name watermark + no right-click/drag, text selection enabled for quotes */}
+        <div 
+          className="relative bg-white dark:bg-brand-surface rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-lg"
+          onContextMenu={(e) => e.preventDefault()}
+          onDragStart={(e) => e.preventDefault()}
+        >
           <Document 
             file={fileUrl} 
             onLoadSuccess={onDocumentLoadSuccess}
@@ -288,19 +353,23 @@ export default function BookReaderPage() {
             >
               {Array.from({ length: numPages }, (_, i) => i + 1).map((p) => (
                 <div key={p} ref={(el) => (pageRefs.current[p] = el)} className="flex justify-center py-2">
-                  {p >= range.start && p <= range.end && containerWidth > 0 ? (
-                    <Page 
-                      pageNumber={p} 
-                      width={containerWidth - 16} 
-                      renderTextLayer={false} 
-                      renderAnnotationLayer={false} 
-                    />
-                  ) : (
-                    <div 
-                      style={{ aspectRatio: '1 / 1.414', width: containerWidth ? containerWidth - 16 : '95%' }}
-                      className="bg-white dark:bg-white/10 rounded shadow animate-pulse"
-                    />
-                  )}
+                  <div className="relative">
+                    {p >= range.start && p <= range.end && containerWidth > 0 ? (
+                      <Page 
+                        pageNumber={p} 
+                        width={containerWidth - 16} 
+                        renderTextLayer={true}
+                        renderAnnotationLayer={false} 
+                      />
+                    ) : (
+                      <div 
+                        style={{ aspectRatio: '1 / 1.414', width: containerWidth ? containerWidth - 16 : '95%' }}
+                        className="bg-white dark:bg-white/10 rounded shadow animate-pulse"
+                      />
+                    )}
+                    {/* ✅ Watermark: © Author Name • Inkbloom on every page */}
+                    <ReaderWatermark text={book?.authorName} />
+                  </div>
                 </div>
               ))}
             </div>
@@ -322,8 +391,60 @@ export default function BookReaderPage() {
           </div>
         </div>
 
+        {/* ✅ FLOATING QUOTE MENU — appears when text is selected */}
+        {showQuoteMenu && selectedText && (
+          <div 
+            className="fixed z-50 bg-white dark:bg-brand-surface rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 p-3 flex gap-2"
+            style={{
+              left: `${Math.max(20, Math.min(selectionPos.x - 80, window.innerWidth - 200))}px`,
+              top: `${Math.max(100, selectionPos.y - 60)}px`,
+            }}
+          >
+            <button
+              onClick={handleSaveQuote}
+              disabled={savingQuote || quoteSaved}
+              className="flex items-center gap-2 px-4 py-2 bg-burgundy-900 text-white rounded-lg text-sm font-semibold hover:bg-burgundy-800 transition disabled:opacity-50"
+            >
+              <Bookmark className="h-4 w-4" />
+              {savingQuote ? 'Saving...' : quoteSaved ? 'Saved!' : 'Save Quote'}
+            </button>
+            <button
+              onClick={() => setShowShareModal(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-semibold hover:bg-green-700 transition"
+            >
+              <Share2 className="h-4 w-4" />
+              Share
+            </button>
+            <button
+              onClick={() => {
+                setShowQuoteMenu(false);
+                setSelectedText('');
+                window.getSelection().removeAllRanges();
+              }}
+              className="p-2 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        )}
+
+        {/* ✅ SHARE MODAL */}
+        {showShareModal && selectedText && book && (
+          <QuoteShare 
+            quoteText={selectedText}
+            bookTitle={book.title}
+            authorName={book.authorName}
+            onClose={() => {
+              setShowShareModal(false);
+              setShowQuoteMenu(false);
+              setSelectedText('');
+              window.getSelection().removeAllRanges();
+            }}
+          />
+        )}
+
         <p className="text-center text-xs text-gray-500 dark:text-gray-400 mt-4">
-          🔒 Your reading position is saved automatically. Downloading is disabled to protect the author's work.
+          💡 Select any text to save or share quotes. Pages are watermarked with the author's name to protect their work.
         </p>
       </div>
     </div>

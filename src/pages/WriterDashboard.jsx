@@ -5,7 +5,7 @@ import Skeleton from '../components/Skeleton';
 import { db } from '../firebaseConfig';
 import { r2Client, BUCKET_NAME } from '../r2Config';
 import { PutObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
-import { collection, addDoc, query, where, getDocs, serverTimestamp, deleteDoc, doc } from 'firebase/firestore';
+import { collection, addDoc, query, where, getDocs, getDoc, serverTimestamp, deleteDoc, doc } from 'firebase/firestore';
 import { GENRES } from '../constants/genres';
 import { ArrowLeft, Upload, BookOpen, Loader2, FileText, Trash2, Share2, Copy, Check, Lock } from 'lucide-react';
 
@@ -25,22 +25,14 @@ export default function WriterDashboard() {
   const [success, setSuccess] = useState('');
   const [myBooks, setMyBooks] = useState([]);
 
-  // Guard 1: Must be logged in
   useEffect(() => { if (!currentUser) navigate('/login'); }, [currentUser, navigate]);
-
-  // Guard 2: Must be verified
   useEffect(() => { 
     if (currentUser && !isEmailVerified) navigate('/verify-email'); 
   }, [currentUser, isEmailVerified, navigate]);
-
-  // Guard 3: Readers cannot enter the writer dashboard
   useEffect(() => {
-    if (currentUser && userRole !== 'writer') {
-      navigate('/discover');
-    }
+    if (currentUser && userRole !== 'writer') navigate('/discover');
   }, [currentUser, userRole, navigate]);
 
-  // Fetch books
   useEffect(() => {
     const fetchMyBooks = async () => {
       if (!currentUser) return;
@@ -55,7 +47,6 @@ export default function WriterDashboard() {
     fetchMyBooks();
   }, [currentUser]);
 
-  // ✅ SECURE PUBLISH (dev = direct R2, prod = pre-signed URL via API)
   const handlePublish = async (e) => {
     e.preventDefault();
     if (!title || !description || !file) return setError("Fill all fields & select PDF");
@@ -66,6 +57,12 @@ export default function WriterDashboard() {
       setError(''); 
       setUploading(true);
       const fileName = `${currentUser.uid}/${Date.now()}_${file.name.replace(/\s+/g, '_')}`;
+      
+      // ✅ Fetch REAL author name from Firestore users collection
+      const userDoc = await getDoc(doc(db, "users", currentUser.uid));
+      const authorName = userDoc.exists() 
+        ? (userDoc.data().displayName || currentUser.email.split('@')[0]) 
+        : (currentUser.displayName || "Anonymous");
       
       if (import.meta.env.DEV && r2Client) {
         console.log("📦 Uploading locally via r2Client...");
@@ -82,10 +79,8 @@ export default function WriterDashboard() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ fileName, contentType: file.type })
         });
-        
         if (!response.ok) throw new Error("Failed to get upload URL");
         const { uploadUrl } = await response.json();
-        
         await fetch(uploadUrl, {
           method: 'PUT',
           body: file,
@@ -93,12 +88,11 @@ export default function WriterDashboard() {
         });
       }
 
-      // Save metadata to Firestore (r2Key only - NO public URLs)
       await addDoc(collection(db, "books"), {
         title, description, genre,
         r2Key: fileName,
         authorId: currentUser.uid,
-        authorName: currentUser.displayName || "Anonymous",
+        authorName, // ✅ Real name, never "Anonymous" again
         createdAt: serverTimestamp()
       });
 
@@ -116,17 +110,13 @@ export default function WriterDashboard() {
     }
   };
 
-  // ✅ SECURE DELETE (dev = direct R2, prod = ownership-verified API)
   const handleDelete = async (bookId, r2Key) => {
     if (!window.confirm("Permanently delete this book? This cannot be undone.")) return;
     try {
       setDeletingId(bookId);
-      
       if (import.meta.env.DEV && r2Client) {
-        // Local dev: delete directly from R2
         await r2Client.send(new DeleteObjectCommand({ Bucket: BUCKET_NAME, Key: r2Key }));
       } else {
-        // Production: secure delete via Vercel API (verifies ownership server-side)
         const token = await currentUser.getIdToken();
         const res = await fetch('/api/delete-book', {
           method: 'POST',
@@ -138,7 +128,6 @@ export default function WriterDashboard() {
         });
         if (!res.ok) throw new Error('Failed to delete book file');
       }
-      
       await deleteDoc(doc(db, "books", bookId));
       setSuccess("Book deleted successfully");
       setMyBooks(prev => prev.filter(b => b.id !== bookId));
@@ -167,7 +156,6 @@ export default function WriterDashboard() {
         {error && <div className="bg-red-100 text-red-700 p-3 rounded-lg text-sm mb-4">{error}</div>}
         {success && <div className="bg-green-100 text-green-700 p-3 rounded-lg text-sm mb-4">{success}</div>}
 
-        {/* Publish Form */}
         <div className="bg-white dark:bg-brand-surface p-8 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-800 mb-8">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-6 flex items-center gap-2">
             <Upload className="h-5 w-5" /> Publish New Book
@@ -214,7 +202,6 @@ export default function WriterDashboard() {
           </form>
         </div>
 
-        {/* My Books List */}
         <div className="bg-white dark:bg-brand-surface p-8 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-800">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-6">My Published Books</h2>
           
@@ -235,7 +222,7 @@ export default function WriterDashboard() {
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex-1 min-w-0 mr-4">
                       <h3 className="font-semibold text-gray-900 dark:text-white truncate">{book.title}</h3>
-                      <p className="text-sm text-gray-500 dark:text-gray-300">{book.genre}</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-300">{book.genre} • By {book.authorName}</p>
                     </div>
                     <button 
                       onClick={() => handleDelete(book.id, book.r2Key)}
@@ -247,7 +234,6 @@ export default function WriterDashboard() {
                     </button>
                   </div>
                   
-                  {/* Invite Link */}
                   <div className="flex items-center gap-2 bg-white dark:bg-brand-surface p-2.5 rounded-lg border border-gray-200 dark:border-gray-700">
                     <Share2 className="h-4 w-4 text-burgundy-900 dark:text-burgundy-400 flex-shrink-0" />
                     <code className="text-xs text-gray-600 dark:text-gray-300 truncate flex-1 font-mono">
