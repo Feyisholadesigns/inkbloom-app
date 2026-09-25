@@ -7,6 +7,7 @@ import Navbar from '../components/Navbar';
 import Skeleton from '../components/Skeleton';
 import { Mail, Calendar, LogOut, PenTool, BookOpen, CheckCircle2, Library, Users, ArrowRight, BadgeCheck, LayoutDashboard, Quote, Trash2 } from 'lucide-react';
 
+// Small reusable stat card
 function StatCard({ icon: Icon, label, value, tone }) {
   return (
     <div className="bg-white dark:bg-brand-surface p-4 rounded-xl border border-gray-100 dark:border-gray-800 text-center">
@@ -36,9 +37,11 @@ export default function ProfilePage() {
     }
     const loadData = async () => {
       try {
+        // Profile details
         const snap = await getDoc(doc(db, "users", currentUser.uid));
         setProfile(snap.exists() ? snap.data() : {});
 
+        // My reading progress
         const readsQ = query(collection(db, "reads"), where("userId", "==", currentUser.uid));
         const readsSnap = await getDocs(readsQ);
         setMyReads(readsSnap.docs.map(d => ({ id: d.id, ...d.data() })));
@@ -48,12 +51,14 @@ export default function ProfilePage() {
         const quotesSnap = await getDocs(quotesQ);
         setMyQuotes(quotesSnap.docs.map(d => ({ id: d.id, ...d.data() })));
 
+        // Writer-only stats
         if (userRole === 'writer') {
           const booksQ = query(collection(db, "books"), where("authorId", "==", currentUser.uid));
           const booksSnap = await getDocs(booksQ);
           const myBooks = booksSnap.docs.map(d => ({ id: d.id, ...d.data() }));
           setPublishedCount(myBooks.length);
 
+          // Count unique readers across my books
           const bookIds = myBooks.map(b => b.id);
           if (bookIds.length > 0 && bookIds.length <= 30) {
             const readersQ = query(collection(db, "reads"), where("bookId", "in", bookIds));
@@ -155,89 +160,93 @@ export default function ProfilePage() {
           <StatCard icon={Quote} label="Saved Quotes" value={loading ? '–' : myQuotes.length} tone="text-purple-600 dark:text-purple-400" />
         </div>
 
-        {/* 📖 Continue Reading */}
-        <div className="bg-white dark:bg-brand-surface rounded-2xl shadow-lg border border-gray-100 dark:border-gray-800 p-6 mb-6">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Continue Reading</h2>
-          {loading ? (
-            <div className="space-y-3">
-              <Skeleton className="h-12 w-full" />
-              <Skeleton className="h-12 w-full" />
-            </div>
-          ) : readingNow.length === 0 ? (
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              No books in progress.{' '}
-              <Link to="/discover" className="text-burgundy-900 dark:text-burgundy-300 font-medium hover:underline">
-                Discover something new →
-              </Link>
-            </p>
-          ) : (
-            <div className="space-y-2">
-              {readingNow.map((read) => (
-                <Link 
-                  key={read.id} 
-                  to={`/book/${read.bookId}`}
-                  className="flex items-center justify-between p-3 rounded-lg bg-gray-50 dark:bg-brand-bg border border-gray-100 dark:border-gray-700 hover:border-burgundy-200 dark:hover:border-burgundy-800 transition group"
-                >
-                  <span className="text-sm font-medium text-gray-900 dark:text-white truncate mr-3">{read.bookTitle}</span>
-                  <ArrowRight className="h-4 w-4 text-burgundy-900 dark:text-burgundy-300 group-hover:translate-x-1 transition-transform flex-shrink-0" />
+        {/* ✅ CONTINUE READING (Hidden for writers unless they have books in progress) */}
+        {(userRole !== 'writer' || readingNow.length > 0) && (
+          <div className="bg-white dark:bg-brand-surface rounded-2xl shadow-lg border border-gray-100 dark:border-gray-800 p-6 mb-6">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Continue Reading</h2>
+            {loading ? (
+              <div className="space-y-3">
+                <Skeleton className="h-12 w-full" />
+                <Skeleton className="h-12 w-full" />
+              </div>
+            ) : readingNow.length === 0 ? (
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                No books in progress.{' '}
+                <Link to="/discover" className="text-burgundy-900 dark:text-burgundy-300 font-medium hover:underline">
+                  Discover something new →
                 </Link>
-              ))}
-            </div>
-          )}
-        </div>
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {readingNow.map((read) => (
+                  <Link 
+                    key={read.id} 
+                    to={`/book/${read.bookId}`}
+                    className="flex items-center justify-between p-3 rounded-lg bg-gray-50 dark:bg-brand-bg border border-gray-100 dark:border-gray-700 hover:border-burgundy-200 dark:hover:border-burgundy-800 transition group"
+                  >
+                    <span className="text-sm font-medium text-gray-900 dark:text-white truncate mr-3">{read.bookTitle}</span>
+                    <ArrowRight className="h-4 w-4 text-burgundy-900 dark:text-burgundy-300 group-hover:translate-x-1 transition-transform flex-shrink-0" />
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
-        {/* ✅ SAVED QUOTES SECTION */}
-        <div className="bg-white dark:bg-brand-surface rounded-2xl shadow-lg border border-gray-100 dark:border-gray-800 p-6 mb-6">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-            <Quote className="h-5 w-5 text-purple-600 dark:text-purple-400" />
-            My Saved Quotes
-          </h2>
-          {loading ? (
-            <div className="space-y-3">
-              <Skeleton className="h-24 w-full" />
-              <Skeleton className="h-24 w-full" />
-            </div>
-          ) : myQuotes.length === 0 ? (
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              No quotes saved yet. Select text while reading to save your favorite passages!
-            </p>
-          ) : (
-            <div className="space-y-3">
-              {myQuotes.slice(0, 5).map((quote) => (
-                <div 
-                  key={quote.id} 
-                  className="p-4 bg-gray-50 dark:bg-brand-bg rounded-lg border border-gray-100 dark:border-gray-700 relative group"
-                >
-                  <p className="text-sm text-gray-900 dark:text-white italic mb-2 pr-8">
-                    "{quote.quoteText}"
-                  </p>
-                  <div className="flex items-center justify-between">
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      — {quote.authorName}, {quote.bookTitle}
+        {/* ✅ SAVED QUOTES SECTION (Hidden for writers unless they have quotes) */}
+        {(userRole !== 'writer' || myQuotes.length > 0) && (
+          <div className="bg-white dark:bg-brand-surface rounded-2xl shadow-lg border border-gray-100 dark:border-gray-800 p-6 mb-6">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+              <Quote className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+              My Saved Quotes
+            </h2>
+            {loading ? (
+              <div className="space-y-3">
+                <Skeleton className="h-24 w-full" />
+                <Skeleton className="h-24 w-full" />
+              </div>
+            ) : myQuotes.length === 0 ? (
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                No quotes saved yet. Select text while reading to save your favorite passages!
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {myQuotes.slice(0, 5).map((quote) => (
+                  <div 
+                    key={quote.id} 
+                    className="p-4 bg-gray-50 dark:bg-brand-bg rounded-lg border border-gray-100 dark:border-gray-700 relative group"
+                  >
+                    <p className="text-sm text-gray-900 dark:text-white italic mb-2 pr-8">
+                      "{quote.quoteText}"
                     </p>
-                    <button
-                      onClick={() => handleDeleteQuote(quote.id)}
-                      disabled={deletingQuoteId === quote.id}
-                      className="p-1 text-red-500 hover:text-red-700 dark:hover:text-red-400 transition disabled:opacity-50"
-                      title="Delete quote"
-                    >
-                      {deletingQuoteId === quote.id ? (
-                        <div className="h-4 w-4 border-2 border-red-500 border-t-transparent rounded-full animate-spin" />
-                      ) : (
-                        <Trash2 className="h-4 w-4" />
-                      )}
-                    </button>
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        — {quote.authorName}, {quote.bookTitle}
+                      </p>
+                      <button
+                        onClick={() => handleDeleteQuote(quote.id)}
+                        disabled={deletingQuoteId === quote.id}
+                        className="p-1 text-red-500 hover:text-red-700 dark:hover:text-red-400 transition disabled:opacity-50"
+                        title="Delete quote"
+                      >
+                        {deletingQuoteId === quote.id ? (
+                          <div className="h-4 w-4 border-2 border-red-500 border-t-transparent rounded-full animate-spin" />
+                        ) : (
+                          <Trash2 className="h-4 w-4" />
+                        )}
+                      </button>
+                    </div>
                   </div>
-                </div>
-              ))}
-              {myQuotes.length > 5 && (
-                <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
-                  + {myQuotes.length - 5} more quotes
-                </p>
-              )}
-            </div>
-          )}
-        </div>
+                ))}
+                {myQuotes.length > 5 && (
+                  <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
+                    + {myQuotes.length - 5} more quotes
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Actions */}
         <div className="space-y-2">
